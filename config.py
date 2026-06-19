@@ -2,12 +2,13 @@
 Configuration and prompts for Claude-powered agents.
 """
 import os
+import json
 from anthropic import Anthropic
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-claude_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+claude_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None # pyright: ignore[reportGeneralTypeIssues]
 
-DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
+DEFAULT_MODEL = "global.anthropic.claude-opus-4-5-20251101-v1:0"
 
 DEFAULT_DTI_THRESHOLD = 0.5
 DEFAULT_INCOME_THRESHOLD = 50000
@@ -90,7 +91,7 @@ Generate JSON with:
 
 Respond ONLY with valid JSON."""
 
-def get_claude_response(prompt: str, system_message: str = None) -> dict:
+def get_claude_response(prompt: str, system_message: str = None) -> dict: # pyright: ignore[reportArgumentType]
     """Get response from Claude API with JSON parsing."""
     if not claude_client:
         raise ValueError("ANTHROPIC_API_KEY not set")
@@ -100,11 +101,20 @@ def get_claude_response(prompt: str, system_message: str = None) -> dict:
         model=DEFAULT_MODEL,
         max_tokens=1024,
         system=system_message or "You are helpful. Respond with JSON only.",
-        messages=messages
+        messages=messages # pyright: ignore[reportArgumentType]
     )
 
-    response_text = response.content[0].text
-    import json
+    response_text = response.content[0].text # pyright: ignore[reportAttributeAccessIssue]
+
+    # Remove markdown code blocks if present
+    if response_text.startswith("```json"):
+        response_text = response_text[7:]
+    elif response_text.startswith("```"):
+        response_text = response_text[3:]
+    if response_text.endswith("```"):
+        response_text = response_text[:-3]
+    response_text = response_text.strip()
+
     try:
         return json.loads(response_text)
     except json.JSONDecodeError:
